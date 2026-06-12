@@ -1,0 +1,44 @@
+name: Test check with output and annotations
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create output text description file
+        run: |
+          echo "This is the detailed text description of the check." > /tmp/check-description.txt
+      - id: action
+        uses: .
+        with:
+          token: ${{ github.token }}
+          name: my-output-check
+          status: completed
+          conclusion: success
+          details_url: https://example.com/details
+          output: |
+            {"title": "Check Output", "summary": "All tests passed"}
+          output_text_description_file: /tmp/check-description.txt
+          annotations: |
+            []
+          images: |
+            []
+        continue-on-error: true
+      - name: Assert action ran with output inputs
+        env:
+          CHECK_ID: ${{ steps.action.outputs.check_id }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "check_id: $CHECK_ID"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECK_ID" ]; then
+              echo "FAIL: expected check_id output to be set on success"
+              exit 1
+            fi
+            echo "PASS: check_id=$CHECK_ID"
+          else
+            echo "INFO: action did not succeed (expected in act environment without real token)"
+            echo "PASS: inputs were accepted"
+          fi

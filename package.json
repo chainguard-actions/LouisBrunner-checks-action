@@ -1,0 +1,42 @@
+{
+	"author": "Louis Brunner",
+	"dependencies": {
+		"@actions/core": "^3.0.0",
+		"@actions/github": "^9.0.0",
+		"@octokit/rest": "^22.0.1"
+	},
+	"description": "GitHub Action which wraps calls to GitHub Checks API",
+	"devDependencies": {
+		"@biomejs/biome": "2.4.10",
+		"@types/node": "^25.5.0",
+		"typescript": "^6.0.2"
+	},
+	"funding": {
+		"type": "individual",
+		"url": "https://github.com/sponsors/LouisBrunner"
+	},
+	"keywords": [
+		"github",
+		"actions",
+		"checks"
+	],
+	"license": "MIT",
+	"main": "lib/main.js",
+	"name": "checks-action",
+	"private": true,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/LouisBrunner/checks-action.git"
+	},
+	"scripts": {
+		"all": "bun run vet && bun run build && bun run pack && bun run test",
+		"build": "tsc",
+		"format:fix": "bunx @biomejs/biome format --write .",
+		"pack": "bun build src/main.ts --outfile dist/index.js --target node --production",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit",
+		"vet": "bun run typecheck && bunx @biomejs/biome check"
+	},
+	"type": "module",
+	"version": "3.1.0"
+}
