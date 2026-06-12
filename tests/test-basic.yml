@@ -1,0 +1,28 @@
+name: Test basic check creation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: create_check
+        uses: .
+        with:
+          token: ${{ github.token }}
+          name: test-basic-check
+          repo: ${{ github.repository }}
+          sha: ${{ github.sha }}
+          status: completed
+          conclusion: success
+          details_url: https://example.com/details
+      - name: Assert check_id output is set
+        env:
+          CHECK_ID: ${{ steps.create_check.outputs.check_id }}
+        run: |
+          echo "check_id: $CHECK_ID"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected check_id to be non-empty"
+            exit 1
+          fi
+          echo "PASS"

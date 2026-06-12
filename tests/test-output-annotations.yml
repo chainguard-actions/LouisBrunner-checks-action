@@ -1,0 +1,36 @@
+name: Test check with output, annotations, and images
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create output text description file
+        run: |
+          echo "This is the detailed text description of the check run." > /tmp/check-text-description.txt
+      - id: create_check
+        uses: .
+        with:
+          token: ${{ github.token }}
+          name: test-output-annotations-check
+          sha: ${{ github.sha }}
+          status: completed
+          conclusion: success
+          output: |
+            {"title": "Test Output", "summary": "All tests passed successfully"}
+          output_text_description_file: /tmp/check-text-description.txt
+          annotations: |
+            [{"path": "README.md", "start_line": 1, "end_line": 1, "annotation_level": "notice", "message": "Test annotation"}]
+          images: |
+            [{"alt": "Test image", "image_url": "https://example.com/image.png"}]
+      - name: Assert check_id output is set
+        env:
+          CHECK_ID: ${{ steps.create_check.outputs.check_id }}
+        run: |
+          echo "check_id: $CHECK_ID"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected check_id to be non-empty"
+            exit 1
+          fi
+          echo "PASS"

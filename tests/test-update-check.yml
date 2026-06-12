@@ -1,0 +1,53 @@
+name: Test updating an existing check with check_id, action_url, and actions
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create initial check
+        id: create_check
+        uses: .
+        with:
+          token: ${{ github.token }}
+          name: test-update-check
+          sha: ${{ github.sha }}
+          status: in_progress
+      - name: Assert initial check_id is set
+        env:
+          CHECK_ID: ${{ steps.create_check.outputs.check_id }}
+        run: |
+          echo "initial check_id: $CHECK_ID"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected check_id to be non-empty after creation"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Update check using check_id
+        id: update_check
+        uses: .
+        with:
+          token: ${{ github.token }}
+          check_id: ${{ steps.create_check.outputs.check_id }}
+          status: completed
+          conclusion: action_required
+          action_url: https://example.com/action-callback
+          actions: |
+            [{"label": "Retry", "description": "Retry the check", "identifier": "retry"}]
+      - name: Assert updated check_id matches
+        env:
+          ORIGINAL_ID: ${{ steps.create_check.outputs.check_id }}
+          UPDATED_ID: ${{ steps.update_check.outputs.check_id }}
+        run: |
+          echo "original check_id: $ORIGINAL_ID"
+          echo "updated check_id: $UPDATED_ID"
+          if [ -z "$UPDATED_ID" ]; then
+            echo "FAIL: expected updated check_id to be non-empty"
+            exit 1
+          fi
+          if [ "$ORIGINAL_ID" != "$UPDATED_ID" ]; then
+            echo "FAIL: expected updated check_id ($UPDATED_ID) to match original ($ORIGINAL_ID)"
+            exit 1
+          fi
+          echo "PASS"
