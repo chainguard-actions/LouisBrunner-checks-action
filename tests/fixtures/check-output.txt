@@ -1,0 +1,2 @@
+This is the detailed text description for the check run output.
+It can contain multiple lines of information about the check results.

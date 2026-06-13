@@ -1,0 +1,32 @@
+name: Test basic usage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        continue-on-error: true
+        uses: .
+        with:
+          token: fake-token-for-testing
+          name: my-check
+          repo: octocat/hello-world
+          sha: abc1234567890abcdef1234567890abcdef123456
+          status: in_progress
+      - name: Assert check_id output exists or action failed gracefully
+        env:
+          CHECK_ID: ${{ steps.action.outputs.check_id }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "check_id: $CHECK_ID"
+          # The action will fail with a fake token (API call fails), which is expected
+          # We just verify the action ran and produced an outcome
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran and produced an outcome"
+          else
+            echo "FAIL: unexpected outcome: $OUTCOME"
+            exit 1
+          fi

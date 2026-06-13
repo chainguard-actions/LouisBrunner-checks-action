@@ -1,6 +1,11 @@
 {
   "owner": "LouisBrunner",
   "repo": "checks-action",
-  "version": "",
-  "url": "https://github.com/LouisBrunner/checks-action"
+  "version": "v1.6.2",
+  "commit_sha": "c6dbaea4f9c79ccfe67c038acddaf713518b255d",
+  "url": "https://github.com/LouisBrunner/checks-action",
+  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "1",
+  "harden_agent_version": "1"
 }
