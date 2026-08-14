@@ -1,34 +1,104 @@
-name: Test check update with check_id and actions
+name: Test updating an existing check
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+      GITHUB_REPOSITORY: test-owner/test-repo
+      GITHUB_SHA: abc123def456abc123def456abc123def456abc1
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - id: action
-        uses: .
-        with:
-          token: ${{ github.token }}
-          check_id: "1"
-          status: completed
-          conclusion: action_required
-          action_url: https://example.com/action-callback
-          actions: |
-            [{"label": "Retry", "description": "Retry the check", "identifier": "retry"}]
-        continue-on-error: true
-      - name: Assert action ran with check_id and actions inputs
-        env:
-          CHECK_ID: ${{ steps.action.outputs.check_id }}
-          OUTCOME: ${{ steps.action.outcome }}
+
+      - name: Start mock GitHub API server
         run: |
-          echo "outcome: $OUTCOME"
-          echo "check_id: $CHECK_ID"
-          # In act environment without a real token, the action will fail at the API call
-          # but we verify the inputs were accepted and the action attempted to run
-          if [ "$OUTCOME" = "success" ]; then
-            echo "PASS: action succeeded with check_id=$CHECK_ID"
-          else
-            echo "INFO: action did not succeed (expected in act environment without real token)"
-            echo "PASS: inputs were accepted"
+          python3 -c "
+          import http.server, json, threading
+
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def log_message(self, format, *args):
+                  pass
+              def do_POST(self):
+                  length = int(self.headers.get('Content-Length', 0))
+                  self.rfile.read(length)
+                  self.send_response(201)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 456, 'name': 'test-check-update', 'status': 'in_progress'}).encode())
+              def do_GET(self):
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 456, 'name': 'test-check-update', 'status': 'in_progress'}).encode())
+              def do_PATCH(self):
+                  length = int(self.headers.get('Content-Length', 0))
+                  self.rfile.read(length)
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 456, 'name': 'test-check-update', 'status': 'completed', 'conclusion': 'success'}).encode())
+
+          server = http.server.HTTPServer(('localhost', 0), Handler)
+          port = server.server_address[1]
+          with open('/tmp/mock_server_port', 'w') as f:
+              f.write(str(port))
+          t = threading.Thread(target=server.serve_forever)
+          t.daemon = True
+          t.start()
+          import time
+          time.sleep(300)
+          " &
+          for i in $(seq 1 20); do
+            if [ -f /tmp/mock_server_port ]; then
+              break
+            fi
+            sleep 0.2
+          done
+          PORT=$(cat /tmp/mock_server_port)
+          echo "Mock server started on port $PORT"
+          echo "MOCK_PORT=$PORT" >> $GITHUB_ENV
+
+      # Step 1: Create the initial check
+      - id: create_check
+        uses: .
+        env:
+          INTERNAL_TESTING_MODE_HTTP_LOCAL_PORT: ${{ env.MOCK_PORT }}
+        with:
+          token: fake-token-for-testing
+          name: "test-check-update"
+          status: in_progress
+
+      - name: Assert initial check_id is non-empty
+        env:
+          CHECK_ID: ${{ steps.create_check.outputs.check_id }}
+        run: |
+          echo "initial check_id: $CHECK_ID"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected initial check_id to be non-empty"
+            exit 1
           fi
+          echo "PASS: initial check_id=$CHECK_ID"
+
+      # Step 2: Update the check using check_id (update does not produce a check_id output)
+      - id: update_check
+        uses: .
+        env:
+          INTERNAL_TESTING_MODE_HTTP_LOCAL_PORT: ${{ env.MOCK_PORT }}
+        with:
+          token: fake-token-for-testing
+          check_id: ${{ steps.create_check.outputs.check_id }}
+          status: completed
+          conclusion: success
+
+      - name: Assert update step completed successfully
+        env:
+          ORIGINAL_ID: ${{ steps.create_check.outputs.check_id }}
+        run: |
+          echo "original check_id: $ORIGINAL_ID"
+          if [ -z "$ORIGINAL_ID" ]; then
+            echo "FAIL: expected original check_id to be non-empty"
+            exit 1
+          fi
+          echo "PASS: update step completed, original check_id=$ORIGINAL_ID"

@@ -1,0 +1,31 @@
+name: Test output_text_description_file input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create text description file
+        run: |
+          echo "This is a detailed text description of the check result." > /tmp/check-description.txt
+      - id: action
+        uses: .
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: test-output-text-file-check
+          status: completed
+          conclusion: success
+          output: |
+            {"title": "Test with text file", "summary": "Check with text description from file"}
+          output_text_description_file: /tmp/check-description.txt
+      - name: Assert check_id is set
+        env:
+          CHECK_ID: ${{ steps.action.outputs.check_id }}
+        run: |
+          echo "check_id: $CHECK_ID"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected check_id to be set"
+            exit 1
+          fi
+          echo "PASS"

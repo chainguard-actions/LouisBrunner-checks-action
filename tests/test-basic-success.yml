@@ -1,0 +1,65 @@
+name: Test basic success check creation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Start mock GitHub API server
+        run: |
+          cat > /tmp/mock_api_18080.py << 'PYEOF'
+          import http.server, json
+
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def log_message(self, fmt, *args): pass
+              def do_POST(self):
+                  self.rfile.read(int(self.headers.get('Content-Length', 0)))
+                  self.send_response(201)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 42, 'name': 'test-check-basic'}).encode())
+              def do_GET(self):
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 42, 'name': 'test-check-basic'}).encode())
+              def do_PATCH(self):
+                  self.rfile.read(int(self.headers.get('Content-Length', 0)))
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 42, 'name': 'test-check-basic'}).encode())
+
+          http.server.HTTPServer(('localhost', 18080), Handler).serve_forever()
+          PYEOF
+          python3 /tmp/mock_api_18080.py &
+          sleep 1
+          echo "Mock server started on port 18080"
+
+      - id: action
+        uses: .
+        env:
+          INTERNAL_TESTING_MODE_HTTP_LOCAL_PORT: "18080"
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "test-check-basic"
+          conclusion: success
+          status: completed
+          sha: ${{ github.sha }}
+
+      - name: Assert check_id is set
+        env:
+          CHECK_ID: ${{ steps.action.outputs.check_id }}
+        run: |
+          echo "check_id: $CHECK_ID"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected check_id to be non-empty"
+            exit 1
+          fi
+          if ! echo "$CHECK_ID" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: expected check_id to be a numeric ID, got: $CHECK_ID"
+            exit 1
+          fi
+          echo "PASS: check_id=$CHECK_ID"

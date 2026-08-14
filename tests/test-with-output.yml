@@ -1,4 +1,4 @@
-name: Test check with output and annotations
+name: Test check with output details
 on:
   workflow_dispatch:
 jobs:
@@ -6,39 +6,62 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Create output text description file
+
+      - name: Start mock GitHub API server
         run: |
-          echo "This is the detailed text description of the check." > /tmp/check-description.txt
+          cat > /tmp/mock_api_18084.py << 'PYEOF'
+          import http.server, json
+
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def log_message(self, fmt, *args): pass
+              def do_POST(self):
+                  self.rfile.read(int(self.headers.get('Content-Length', 0)))
+                  self.send_response(201)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 88, 'name': 'test-check-with-output'}).encode())
+              def do_GET(self):
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 88, 'name': 'test-check-with-output'}).encode())
+              def do_PATCH(self):
+                  self.rfile.read(int(self.headers.get('Content-Length', 0)))
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(json.dumps({'id': 88, 'name': 'test-check-with-output'}).encode())
+
+          http.server.HTTPServer(('localhost', 18084), Handler).serve_forever()
+          PYEOF
+          python3 /tmp/mock_api_18084.py &
+          sleep 1
+          echo "Mock server started on port 18084"
+
       - id: action
         uses: .
+        env:
+          INTERNAL_TESTING_MODE_HTTP_LOCAL_PORT: "18084"
         with:
-          token: ${{ github.token }}
-          name: my-output-check
-          status: completed
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "test-check-with-output"
           conclusion: success
-          details_url: https://example.com/details
+          status: completed
+          sha: ${{ github.sha }}
           output: |
-            {"title": "Check Output", "summary": "All tests passed"}
-          output_text_description_file: /tmp/check-description.txt
-          annotations: |
-            []
-          images: |
-            []
-        continue-on-error: true
-      - name: Assert action ran with output inputs
+            {"title": "Test Results", "summary": "All tests passed", "text": "Detailed test output here"}
+
+      - name: Assert check_id is set
         env:
           CHECK_ID: ${{ steps.action.outputs.check_id }}
-          OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "outcome: $OUTCOME"
           echo "check_id: $CHECK_ID"
-          if [ "$OUTCOME" = "success" ]; then
-            if [ -z "$CHECK_ID" ]; then
-              echo "FAIL: expected check_id output to be set on success"
-              exit 1
-            fi
-            echo "PASS: check_id=$CHECK_ID"
-          else
-            echo "INFO: action did not succeed (expected in act environment without real token)"
-            echo "PASS: inputs were accepted"
+          if [ -z "$CHECK_ID" ]; then
+            echo "FAIL: expected check_id to be non-empty"
+            exit 1
           fi
+          if ! echo "$CHECK_ID" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: expected check_id to be numeric, got: $CHECK_ID"
+            exit 1
+          fi
+          echo "PASS: check with output created, check_id=$CHECK_ID"
