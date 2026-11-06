@@ -4,8 +4,13 @@
   "version": "v2.0.0",
   "commit_sha": "6b626ffbad7cc56fd58627f774b9067e6118af23",
   "url": "https://github.com/LouisBrunner/checks-action",
-  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "policy_sha": "374911c4be584df24e6da57af2d990570ef0f859",
   "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
-  "test_agent_version": "1",
-  "harden_agent_version": "1"
+  "test_agent_version": "2",
+  "harden_agent_version": "2",
+  "dist_artifact": {
+    "gcs_uri": "gs://patch-actions-node-artifacts/dist-artifacts/LouisBrunner/checks-action/v2.0.0/sha256-d1efa993df79b373336e816261593faddf6a9b61e2b86892fdbcb54b23b78aa2.tar.gz",
+    "sha256": "d1efa993df79b373336e816261593faddf6a9b61e2b86892fdbcb54b23b78aa2",
+    "size_bytes": 161094
+  }
 }
